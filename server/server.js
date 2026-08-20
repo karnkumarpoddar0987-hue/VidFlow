@@ -34,7 +34,7 @@ app.use('/api/proxy', require('./routes/proxy'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Serve built React app
-const distPath = path.join(__dirname, '../dist');
+const distPath = path.join(__dirname, '../client/dist');
 app.use(express.static(distPath));
 app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
