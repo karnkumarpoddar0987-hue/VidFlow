@@ -50,9 +50,48 @@ exports.getSuggestions = async (req, res) => {
 };
 
 exports.getShorts = async (req, res) => {
+  const { pageToken, category } = req.query;
+
+  // Diverse Indian + Global shorts queries — rotated per request
+  const shortsQueries = [
+    '#shorts India', '#shorts Hindi', 'India shorts viral',
+    'Bollywood shorts', 'Cricket shorts', 'Indian comedy shorts',
+    'Indian gaming shorts', 'Indian tech shorts', '#shorts trending India',
+    'Hindi shorts video', 'Indian music shorts', 'Indian education shorts',
+    '#shorts viral', '#shorts funny', '#shorts gaming',
+    '#shorts music', '#shorts dance', '#shorts cooking',
+    'shorts AI technology', 'shorts coding tutorial',
+    'shorts cricket highlights', 'shorts football',
+    'shorts motivation', 'shorts facts', 'shorts science',
+    'YouTube shorts trending', 'shorts entertainment'
+  ];
+
+  // Pick a query — rotate based on pageToken presence or random
+  const queryIndex = pageToken
+    ? Math.floor(Math.random() * shortsQueries.length)
+    : Math.floor(Date.now() / 300000) % shortsQueries.length; // changes every 5 min
+
+  const query = category || shortsQueries[queryIndex];
+
   try {
-    const result = await yt.searchVideos('#shorts', 20);
-    res.json(result);
+    const result = await yt.searchVideos(query, 15, pageToken || '');
+    // Filter: prefer shorter videos (likely actual Shorts <= 60s)
+    const filtered = result.videos.filter(v => {
+      if (!v.rawDuration) return true;
+      const m = v.rawDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!m) return true;
+      const h = parseInt(m[1] || 0);
+      const mins = parseInt(m[2] || 0);
+      if (h > 0) return false; // skip hour-long videos
+      if (mins > 3) return false; // skip videos > 3 min
+      return true;
+    });
+
+    res.json({
+      videos: filtered.length > 0 ? filtered : result.videos.slice(0, 10),
+      nextPageToken: result.nextPageToken || null,
+      hasMore: !!result.nextPageToken
+    });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }

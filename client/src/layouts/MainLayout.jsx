@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import MobileNav from '../components/MobileNav';
@@ -7,6 +7,16 @@ import { useSidebar } from '../context/SidebarContext';
 
 export default function MainLayout() {
   const { isOpen } = useSidebar();
+  const { pathname } = useLocation();
+  const isShorts = pathname === '/shorts';
+
+  if (isShorts) {
+    return (
+      <div className="flex flex-col bg-black" style={{ height: '100dvh', overflow: 'hidden' }}>
+        <Outlet />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-zinc-950">
