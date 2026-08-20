@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { search, getById, getTrending, getRelated, getSuggestions, getShorts } = require('../controllers/videoController');
-
+router.get('/', getTrending);
 router.get('/search', search);
 router.get('/trending', getTrending);
 router.get('/shorts', getShorts);
