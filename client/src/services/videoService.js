@@ -3,8 +3,8 @@ import api from './api';
 export const searchVideos = (q, maxResults = 20, pageToken = '') =>
   api.get('/videos/search', { params: { q, maxResults, pageToken } }).then(r => r.data);
 
-export const getTrending = (maxResults = 20) =>
-  api.get('/videos/trending', { params: { maxResults } }).then(r => r.data);
+export const getTrending = (maxResults = 20, category = '') =>
+  api.get('/videos/trending', { params: { maxResults, category } }).then(r => r.data);
 
 export const getVideoById = (id) =>
   api.get(`/videos/${id}`).then(r => r.data);
@@ -12,8 +12,8 @@ export const getVideoById = (id) =>
 export const getRelatedVideos = (id) =>
   api.get(`/videos/${id}/related`).then(r => r.data);
 
-export const getShorts = (pageToken = '', category = '') =>
-  api.get('/videos/shorts', { params: { pageToken, category } }).then(r => r.data);
+export const getShorts = (pageToken = '', queryIndex = '') =>
+  api.get('/videos/shorts', { params: { pageToken, queryIndex } }).then(r => r.data);
 
 export const getSuggestions = (q) =>
   api.get('/videos/suggestions', { params: { q } }).then(r => r.data);

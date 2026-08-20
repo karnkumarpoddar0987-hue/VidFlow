@@ -49,20 +49,23 @@ const formatVideo = (item, details = {}) => ({
   tags: item.snippet?.tags || []
 });
 
-const searchVideos = async (query, maxResults = 20, pageToken = '') => {
+const searchVideos = async (query, maxResults = 20, pageToken = '', regionCode = 'IN') => {
   checkApiKey();
   const params = {
     part: 'snippet',
     q: query,
     type: 'video',
     maxResults,
+    regionCode,
     key: API_KEY,
     ...(pageToken && { pageToken })
   };
   const { data } = await axios.get(`${YOUTUBE_API_BASE}/search`, { params });
-  const videoIds = data.items.map(i => i.id.videoId).join(',');
+  if (!data.items || data.items.length === 0) {
+    return { videos: [], nextPageToken: null, totalResults: 0 };
+  }
+  const videoIds = data.items.map(i => i.id.videoId).filter(Boolean).join(',');
 
-  // Fetch video details for duration and stats
   let detailsMap = {};
   if (videoIds) {
     const detailRes = await axios.get(`${YOUTUBE_API_BASE}/videos`, {
@@ -72,7 +75,7 @@ const searchVideos = async (query, maxResults = 20, pageToken = '') => {
   }
 
   return {
-    videos: data.items.map(item => formatVideo(item, detailsMap[item.id.videoId] || {})),
+    videos: data.items.map(item => formatVideo(item, detailsMap[item.id?.videoId] || {})),
     nextPageToken: data.nextPageToken || null,
     totalResults: data.pageInfo?.totalResults || 0
   };
