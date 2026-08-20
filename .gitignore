@@ -1,0 +1,21 @@
+# ===== NEVER COMMIT THESE =====
+# Environment secrets
+.env
+server/.env
+*.env.local
+
+# Dependencies — auto-installed on deploy
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output — generated on deploy
+dist/
+client/dist/
+
+# ===== SAFE TO IGNORE =====
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+Thumbs.db
