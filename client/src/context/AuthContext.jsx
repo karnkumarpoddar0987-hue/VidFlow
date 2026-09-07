@@ -13,7 +13,12 @@ export const AuthProvider = ({ children }) => {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       api.get('/auth/me')
         .then(res => setUser(res.data))
-        .catch(() => { localStorage.removeItem('vf_token'); })
+        .catch((err) => {
+          // If DB is down (503) keep token but set user null — don't wipe token
+          if (err?.response?.status !== 503) {
+            localStorage.removeItem('vf_token');
+          }
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);

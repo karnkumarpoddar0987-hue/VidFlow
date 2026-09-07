@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Video, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -34,10 +34,14 @@ export default function Register() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center">
-              <Video size={20} className="text-white" />
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+                <circle cx="50" cy="50" r="49" fill="#0a0a0a" stroke="#cc0000" strokeWidth="3"/>
+                <path d="M30 25 L30 62 Q30 68 36 65 L72 47 Q78 44 72 41 L36 23 Q30 20 30 25Z" fill="#cc0000"/>
+                <path d="M44 38 L44 55 Q44 59 48 57 L62 48 Q66 46 62 44 L48 35 Q44 33 44 38Z" fill="white" opacity="0.9"/>
+              </svg>
             </div>
-            <span className="text-2xl font-bold">Vid<span className="text-blue-500">Flow</span></span>
+            <span className="text-2xl font-bold">Vid<span className="text-red-500">Flow</span></span>
           </Link>
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-zinc-500 text-sm mt-1">Join millions of viewers on VidFlow</p>

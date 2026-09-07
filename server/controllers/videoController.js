@@ -145,24 +145,31 @@ exports.getSuggestions = async (req, res) => {
 exports.getShorts = async (req, res) => {
   const { pageToken, queryIndex } = req.query;
 
-  // Pick query — use queryIndex from client so each load gets a different category
-  const idx = queryIndex !== undefined
-    ? parseInt(queryIndex) % SHORTS_QUERIES.length
-    : Math.floor(Date.now() / 300000) % SHORTS_QUERIES.length;
+  // Always use a fresh random index if no queryIndex sent
+  // This ensures every new Shorts session shows different content
+  const totalQueries = SHORTS_QUERIES.length;
+  let idx;
+  if (queryIndex !== undefined && queryIndex !== '') {
+    idx = parseInt(queryIndex) % totalQueries;
+  } else {
+    // Random — not time-based — so refreshing always gives new content
+    idx = Math.floor(Math.random() * totalQueries);
+  }
 
   const query = SHORTS_QUERIES[idx];
+  const nextIdx = (idx + 1) % totalQueries;
 
   try {
     const result = await yt.searchVideos(query, 15, pageToken || '', 'IN');
 
-    // Filter to Shorts-length only
+    // Filter to Shorts-length only (<=3 min)
     const filtered = result.videos.filter(v => isShortsLength(v.rawDuration));
 
     res.json({
       videos: filtered.length >= 5 ? filtered : result.videos.slice(0, 12),
       nextPageToken: result.nextPageToken || null,
       hasMore: !!result.nextPageToken,
-      queryIndex: (idx + 1) % SHORTS_QUERIES.length // tell client which query to use next
+      queryIndex: nextIdx
     });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });

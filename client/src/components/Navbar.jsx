@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Menu, Search, Mic, Bell, User, LogOut, Settings,
-  Video, ChevronDown, X, Sun, Moon, Laptop
+  Menu, Search, Bell, User, LogOut, Settings,
+  ChevronDown, X, Sun, Moon, Laptop
 } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useAuth } from '../context/AuthContext';
@@ -66,12 +66,16 @@ export default function Navbar() {
         <button onClick={toggle} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <Menu size={20} />
         </button>
-        <Link to="/" className="flex items-center gap-1.5 select-none">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-600 rounded-lg flex items-center justify-center">
-            <Video size={16} className="text-white" />
+        <Link to="/" className="flex items-center gap-2 select-none">
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{background:'#000'}}>
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+              <circle cx="50" cy="50" r="49" fill="#0a0a0a" stroke="#cc0000" strokeWidth="3"/>
+              <path d="M30 25 L30 62 Q30 68 36 65 L72 47 Q78 44 72 41 L36 23 Q30 20 30 25Z" fill="#cc0000"/>
+              <path d="M44 38 L44 55 Q44 59 48 57 L62 48 Q66 46 62 44 L48 35 Q44 33 44 38Z" fill="white" opacity="0.9"/>
+            </svg>
           </div>
           <span className="text-xl font-bold hidden sm:block">
-            Vid<span className="text-blue-500">Flow</span>
+            Vid<span className="text-red-500">Flow</span>
           </span>
         </Link>
       </div>

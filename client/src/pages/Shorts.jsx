@@ -249,17 +249,20 @@ export default function Shorts() {
     return { added, updatedIds };
   }, []);
 
-  // Initial load
+  // Initial load — use random query every session to avoid same videos
   useEffect(() => {
     setLoading(true);
     setError(null);
-    getShorts('', 0)
+    // Random starting query index each time page is opened
+    const startIdx = Math.floor(Math.random() * 26);
+    setNextQueryIndex(startIdx);
+    getShorts('', startIdx)
       .then(data => {
         const { added, updatedIds } = dedupe(data.videos || [], new Set());
         setVideos(added);
         setSeenIds(updatedIds);
         setNextPageToken(data.nextPageToken || '');
-        setNextQueryIndex(data.queryIndex ?? 1);
+        setNextQueryIndex(data.queryIndex ?? (startIdx + 1));
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));

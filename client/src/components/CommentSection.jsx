@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { ThumbsUp, Trash2, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { ThumbsUp, Trash2, MessageSquare, ChevronDown, ChevronUp, WifiOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'timeago.js';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+
+const isDBDown = (err) =>
+  err?.response?.status === 503 ||
+  err?.response?.data?.code === 'DB_UNAVAILABLE';
+
+function DBUnavailable() {
+  return (
+    <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm">
+      <WifiOff size={15} className="shrink-0" />
+      <span>Comments are temporarily unavailable. Please try again later.</span>
+    </div>
+  );
+}
 
 function CommentItem({ comment, videoId, onDelete }) {
   const { user } = useAuth();
@@ -21,19 +34,24 @@ function CommentItem({ comment, videoId, onDelete }) {
       const res = await api.post(`/comments/${comment._id}/like`);
       setLikes(res.data.likes);
       setLiked(res.data.liked);
-    } catch {}
+    } catch (err) {
+      if (isDBDown(err)) toast.error('Comments unavailable right now');
+    }
   };
 
   const handleReply = async () => {
     if (!replyText.trim()) return;
     try {
-      const res = await api.post(`/comments/${videoId}`, { text: replyText, parentCommentId: comment._id });
+      const res = await api.post(`/comments/${videoId}`, {
+        text: replyText,
+        parentCommentId: comment._id
+      });
       setReplies(prev => [...prev, res.data]);
       setReplyText('');
       setReplying(false);
       setShowReplies(true);
     } catch (err) {
-      toast.error(err.message);
+      toast.error(isDBDown(err) ? 'Comments unavailable right now' : err.message);
     }
   };
 
@@ -49,7 +67,10 @@ function CommentItem({ comment, videoId, onDelete }) {
         </div>
         <p className="text-sm leading-relaxed mb-2">{comment.text}</p>
         <div className="flex items-center gap-3 text-xs text-zinc-500">
-          <button onClick={handleLike} className={`flex items-center gap-1 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors ${liked ? 'text-blue-500' : ''}`}>
+          <button
+            onClick={handleLike}
+            className={`flex items-center gap-1 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors ${liked ? 'text-blue-500' : ''}`}
+          >
             <ThumbsUp size={13} /> {likes > 0 && likes}
           </button>
           {user && (
@@ -72,7 +93,9 @@ function CommentItem({ comment, videoId, onDelete }) {
 
         {replying && (
           <div className="flex gap-2 mt-3">
-            <input value={replyText} onChange={e => setReplyText(e.target.value)}
+            <input
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
               placeholder="Write a reply..."
               className="flex-1 px-3 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-sm outline-none border border-zinc-200 dark:border-zinc-700 focus:border-blue-500"
             />
@@ -109,12 +132,17 @@ export default function CommentSection({ videoId }) {
   const [comments, setComments] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [dbDown, setDbDown] = useState(false);
 
   useEffect(() => {
-    api.get(`/comments/${videoId}`).then(r => {
-      setComments(r.data.comments || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    setDbDown(false);
+    api.get(`/comments/${videoId}`)
+      .then(r => { setComments(r.data.comments || []); })
+      .catch(err => {
+        if (isDBDown(err)) setDbDown(true);
+        // Other errors: just show empty comments — don't block video
+      })
+      .finally(() => setLoading(false));
   }, [videoId]);
 
   const addComment = async () => {
@@ -125,7 +153,7 @@ export default function CommentSection({ videoId }) {
       setComments(prev => [res.data, ...prev]);
       setText('');
     } catch (err) {
-      toast.error(err.message);
+      toast.error(isDBDown(err) ? 'Comments unavailable right now' : err.message);
     }
   };
 
@@ -135,7 +163,7 @@ export default function CommentSection({ videoId }) {
       setComments(prev => prev.filter(c => c._id !== id));
       toast.success('Comment deleted');
     } catch (err) {
-      toast.error(err.message);
+      toast.error(isDBDown(err) ? 'Comments unavailable right now' : err.message);
     }
   };
 
@@ -145,56 +173,63 @@ export default function CommentSection({ videoId }) {
         <MessageSquare size={18} /> {comments.length} Comments
       </h3>
 
-      {user ? (
-        <div className="flex gap-3 mb-6">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">
-            {user.username?.[0]?.toUpperCase()}
-          </div>
-          <div className="flex-1">
-            <input value={text} onChange={e => setText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addComment()}
-              placeholder="Add a comment..."
-              className="w-full px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm outline-none border border-zinc-200 dark:border-zinc-700 focus:border-blue-500"
-            />
-            {text.trim() && (
-              <div className="flex gap-2 mt-2 justify-end">
-                <button onClick={() => setText('')} className="px-4 py-1.5 text-sm rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
-                <button onClick={addComment} className="px-4 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Comment</button>
-              </div>
-            )}
-          </div>
-        </div>
+      {dbDown ? (
+        <DBUnavailable />
       ) : (
-        <div className="mb-4 p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm text-zinc-500">
-          <Link to="/login" className="text-blue-500 hover:underline">Sign in</Link> to add a comment
-        </div>
-      )}
-
-      {loading ? (
-        <div className="space-y-4">
-          {[1,2,3].map(i => (
-            <div key={i} className="flex gap-3 animate-pulse">
-              <div className="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-32" />
-                <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-full" />
-                <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-2/3" />
+        <>
+          {user ? (
+            <div className="flex gap-3 mb-6">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">
+                {user.username?.[0]?.toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <input
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addComment()}
+                  placeholder="Add a comment..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm outline-none border border-zinc-200 dark:border-zinc-700 focus:border-blue-500"
+                />
+                {text.trim() && (
+                  <div className="flex gap-2 mt-2 justify-end">
+                    <button onClick={() => setText('')} className="px-4 py-1.5 text-sm rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
+                    <button onClick={addComment} className="px-4 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Comment</button>
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {comments.map(c => (
-            <CommentItem key={c._id} comment={c} videoId={videoId} onDelete={deleteComment} />
-          ))}
-          {comments.length === 0 && (
-            <div className="text-center py-8 text-zinc-400">
-              <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
-              <p>No comments yet. Be the first!</p>
+          ) : (
+            <div className="mb-4 p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm text-zinc-500">
+              <Link to="/login" className="text-blue-500 hover:underline">Sign in</Link> to add a comment
             </div>
           )}
-        </div>
+
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex gap-3 animate-pulse">
+                  <div className="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-32" />
+                    <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {comments.map(c => (
+                <CommentItem key={c._id} comment={c} videoId={videoId} onDelete={deleteComment} />
+              ))}
+              {comments.length === 0 && (
+                <div className="text-center py-8 text-zinc-400">
+                  <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
+                  <p>No comments yet. Be the first!</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
