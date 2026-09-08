@@ -77,31 +77,27 @@ export default function Home() {
         const indianQ = indianTrendingQueries[slot];
         const globalQ = globalQueries[Math.floor(Math.random() * globalQueries.length)];
 
-        const [trendIN, indRes, globRes] = await Promise.allSettled([
-          getTrending(10),            // Trending IN from server
-          searchVideos(indianQ, 10),  // Indian search
-          searchVideos(globalQ, 5)    // Small global mix
+        const [trendRes, globRes] = await Promise.allSettled([
+          getTrending(20),   // server handles Indian mix + returns nextPageToken
+          searchVideos(globalQ, 5)
         ]);
 
-        const t = trendIN.status === 'fulfilled' ? (trendIN.value.videos || []) : [];
-        const ind = indRes.status === 'fulfilled' ? (indRes.value.videos || []) : [];
+        const t = trendRes.status === 'fulfilled' ? (trendRes.value.videos || []) : [];
         const glob = globRes.status === 'fulfilled' ? (globRes.value.videos || []) : [];
 
-        // 70-80% Indian, 20-30% global — interleave
-        const indianPool = [...t, ...ind];
+        // Mix: 1 global every 5 Indian
         const mixed = [];
         let gi = 0;
-        indianPool.forEach((v, i) => {
+        t.forEach((v, i) => {
           mixed.push(v);
-          // Insert 1 global every 4 Indian
-          if ((i + 1) % 4 === 0 && gi < glob.length) mixed.push(glob[gi++]);
+          if ((i + 1) % 5 === 0 && gi < glob.length) mixed.push(glob[gi++]);
         });
-        while (gi < glob.length) mixed.push(glob[gi++]);
 
         const { added, updated } = dedupe(mixed, new Set());
         setVideos(added);
         setSeenIds(updated);
-        if (indRes.status === 'fulfilled') setNextPageToken(indRes.value.nextPageToken || null);
+        // Use nextPageToken from trending endpoint for infinite scroll
+        if (trendRes.status === 'fulfilled') setNextPageToken(trendRes.value.nextPageToken || null);
 
       } else {
         const result = await searchVideos(categoryMap[cat] || cat, 24);
@@ -124,12 +120,18 @@ export default function Home() {
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);
     try {
-      const slot = Math.floor(Date.now() / 180000) % indianTrendingQueries.length;
-      const q = category === 'All'
-        ? indianTrendingQueries[(slot + 1) % indianTrendingQueries.length]
-        : categoryMap[category] || category;
-
-      const result = await searchVideos(q, 20, nextPageToken);
+      let result;
+      if (category === 'All') {
+        // Use trending endpoint with nextPageToken for more Indian videos
+        result = await getTrending(20, category);
+        // If no nextPageToken from trending, try a different Indian query
+        if (!result.nextPageToken) {
+          const slot = Math.floor(Math.random() * indianTrendingQueries.length);
+          result = await searchVideos(indianTrendingQueries[slot], 20);
+        }
+      } else {
+        result = await searchVideos(categoryMap[category] || category, 20, nextPageToken);
+      }
       const { added, updated } = dedupe(result.videos || [], seenIds);
       setVideos(prev => [...prev, ...added]);
       setSeenIds(updated);

@@ -106,30 +106,37 @@ exports.getTrending = async (req, res) => {
   const slot = Math.floor(Date.now() / 180000) % queries.length;
   const query = queries[slot];
 
-  // Cache key — don't repeat same API call within 5 min
   const cacheKey = `trending:${cat}:${slot}:${pageToken || ''}`;
   const cached = getCache(cacheKey);
   if (cached) return res.json(cached);
 
   try {
-    const [trendIN, searchIN] = await Promise.allSettled([
-      yt.getTrending('IN', 12),
-      yt.searchVideos(query, 12, pageToken || '', 'IN')
-    ]);
+    // Use search API which properly returns nextPageToken
+    const searchResult = await yt.searchVideos(query, 20, pageToken || '', 'IN');
 
-    const trendVids = trendIN.status === 'fulfilled' ? trendIN.value : [];
-    const searchVids = searchIN.status === 'fulfilled' ? (searchIN.value.videos || []) : [];
-
-    const seen = new Set();
-    const all = [];
-    for (const v of [...trendVids, ...searchVids]) {
-      if (v.videoId && !seen.has(v.videoId)) { seen.add(v.videoId); all.push(v); }
+    // On first load (no pageToken), also mix in some IN trending
+    let allVideos = searchResult.videos || [];
+    if (!pageToken) {
+      const trendRes = await yt.getTrending('IN', 10).catch(() => []);
+      // Interleave: 1 trending every 3 search results
+      const mixed = [];
+      let ti = 0;
+      allVideos.forEach((v, i) => {
+        mixed.push(v);
+        if ((i + 1) % 3 === 0 && ti < trendRes.length) mixed.push(trendRes[ti++]);
+      });
+      while (ti < trendRes.length) mixed.push(trendRes[ti++]);
+      // Deduplicate
+      const seen = new Set();
+      allVideos = mixed.filter(v => {
+        if (!v.videoId || seen.has(v.videoId)) return false;
+        seen.add(v.videoId); return true;
+      });
     }
-    all.sort(() => Math.random() - 0.5);
 
     const result = {
-      videos: all,
-      nextPageToken: searchIN.status === 'fulfilled' ? (searchIN.value.nextPageToken || null) : null
+      videos: allVideos,
+      nextPageToken: searchResult.nextPageToken || null
     };
     setCache(cacheKey, result);
     res.json(result);
