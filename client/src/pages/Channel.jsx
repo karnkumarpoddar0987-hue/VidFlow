@@ -135,33 +135,44 @@ export default function Channel() {
       {/* Banner */}
       <ChannelBanner channel={channel} />
 
-      {/* Channel info */}
+      {/* Channel info — logo sits BELOW banner, no negative margin overlap */}
       <div className="px-4 md:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 mb-4">
-          <ChannelLogo channel={channel} />
-          <div className="flex-1 min-w-0 pb-1">
-            <h1 className="text-2xl font-bold leading-tight">{channel?.title}</h1>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              {channel?.customUrl && <span>@{channel.customUrl}</span>}
-              {channel?.subscriberCount && (
-                <><span className="hidden sm:inline">•</span>
-                <span className="flex items-center gap-1"><Users size={13} />{channel.subscriberCount} subscribers</span></>
-              )}
-              {channel?.videoCount && (
-                <><span>•</span><span className="flex items-center gap-1"><Video size={13} />{channel.videoCount} videos</span></>
+        {/* Logo row — separate from banner, clean positioning */}
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 pt-3 mb-4">
+          {/* Avatar — pulled up slightly with negative margin only on sm+ */}
+          <div className="shrink-0 -mt-16 sm:-mt-14 ml-2">
+            <ChannelLogo channel={channel} />
+          </div>
+
+          {/* Info + Subscribe in same row on desktop */}
+          <div className="flex flex-1 flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1 sm:pt-2 min-w-0">
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold leading-tight truncate">{channel?.title}</h1>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                {channel?.customUrl && <span>@{channel.customUrl}</span>}
+                {channel?.subscriberCount && (
+                  <><span>•</span>
+                  <span className="flex items-center gap-1"><Users size={13} />{channel.subscriberCount} subscribers</span></>
+                )}
+                {channel?.videoCount && (
+                  <><span>•</span><span className="flex items-center gap-1"><Video size={13} />{channel.videoCount} videos</span></>
+                )}
+              </div>
+              {channel?.description && (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-2 max-w-2xl">{channel.description}</p>
               )}
             </div>
-            {channel?.description && (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-2 max-w-2xl">{channel.description}</p>
-            )}
+
+            <button
+              onClick={toggleSubscribe}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all shrink-0
+                ${subscribed
+                  ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300'
+                  : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 shadow-md'}`}
+            >
+              {subscribed ? <><Bell size={15} /> Subscribed</> : 'Subscribe'}
+            </button>
           </div>
-          <button onClick={toggleSubscribe}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all shrink-0 mb-1
-              ${subscribed
-                ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600'
-                : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 shadow-md'}`}>
-            {subscribed ? <><Bell size={15} /> Subscribed</> : 'Subscribe'}
-          </button>
         </div>
 
         {/* Tabs */}
