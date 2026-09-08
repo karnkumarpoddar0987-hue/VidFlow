@@ -1,5 +1,17 @@
 const yt = require('../services/youtube');
 
+// ── Simple in-memory cache (avoids repeated API calls) ────────────────────
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCache = (key) => {
+  const item = cache.get(key);
+  if (!item) return null;
+  if (Date.now() - item.ts > CACHE_TTL) { cache.delete(key); return null; }
+  return item.data;
+};
+const setCache = (key, data) => cache.set(key, { data, ts: Date.now() });
+
 // ── Indian-first Shorts queries (rotated) ──────────────────────────────────
 const SHORTS_QUERIES = [
   'Hindi funny shorts', 'desi comedy shorts', 'Indian funny shorts',
@@ -64,8 +76,14 @@ const isLongVideo = (rawDuration) => {
 exports.search = async (req, res) => {
   const { q, maxResults = 20, pageToken } = req.query;
   if (!q) return res.status(400).json({ error: 'Query parameter q is required' });
+
+  const cacheKey = `search:${q}:${maxResults}:${pageToken || ''}`;
+  const cached = getCache(cacheKey);
+  if (cached) return res.json(cached);
+
   try {
     const result = await yt.searchVideos(q, parseInt(maxResults), pageToken, 'IN');
+    setCache(cacheKey, result);
     res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
@@ -85,13 +103,15 @@ exports.getTrending = async (req, res) => {
   const { pageToken, category } = req.query;
   const cat = category || 'All';
   const queries = LONG_QUERIES[cat] || LONG_QUERIES.All;
-
-  // Rotate query based on time slot so results vary on refresh
-  const slot = Math.floor(Date.now() / 180000) % queries.length; // rotates every 3 min
+  const slot = Math.floor(Date.now() / 180000) % queries.length;
   const query = queries[slot];
 
+  // Cache key — don't repeat same API call within 5 min
+  const cacheKey = `trending:${cat}:${slot}:${pageToken || ''}`;
+  const cached = getCache(cacheKey);
+  if (cached) return res.json(cached);
+
   try {
-    // Mix IN trending + query search for Indian-first feel
     const [trendIN, searchIN] = await Promise.allSettled([
       yt.getTrending('IN', 12),
       yt.searchVideos(query, 12, pageToken || '', 'IN')
@@ -100,23 +120,19 @@ exports.getTrending = async (req, res) => {
     const trendVids = trendIN.status === 'fulfilled' ? trendIN.value : [];
     const searchVids = searchIN.status === 'fulfilled' ? (searchIN.value.videos || []) : [];
 
-    // Deduplicate
     const seen = new Set();
     const all = [];
     for (const v of [...trendVids, ...searchVids]) {
-      if (v.videoId && !seen.has(v.videoId)) {
-        seen.add(v.videoId);
-        all.push(v);
-      }
+      if (v.videoId && !seen.has(v.videoId)) { seen.add(v.videoId); all.push(v); }
     }
-
-    // Shuffle for variety
     all.sort(() => Math.random() - 0.5);
 
-    res.json({
+    const result = {
       videos: all,
       nextPageToken: searchIN.status === 'fulfilled' ? (searchIN.value.nextPageToken || null) : null
-    });
+    };
+    setCache(cacheKey, result);
+    res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -144,33 +160,31 @@ exports.getSuggestions = async (req, res) => {
 
 exports.getShorts = async (req, res) => {
   const { pageToken, queryIndex } = req.query;
-
-  // Always use a fresh random index if no queryIndex sent
-  // This ensures every new Shorts session shows different content
   const totalQueries = SHORTS_QUERIES.length;
   let idx;
   if (queryIndex !== undefined && queryIndex !== '') {
     idx = parseInt(queryIndex) % totalQueries;
   } else {
-    // Random — not time-based — so refreshing always gives new content
     idx = Math.floor(Math.random() * totalQueries);
   }
-
   const query = SHORTS_QUERIES[idx];
   const nextIdx = (idx + 1) % totalQueries;
 
+  // Cache shorts (don't re-fetch same query+page within 5 min)
+  const cacheKey = `shorts:${idx}:${pageToken || ''}`;
+  const cached = getCache(cacheKey);
+  if (cached) return res.json({ ...cached, queryIndex: nextIdx });
+
   try {
     const result = await yt.searchVideos(query, 15, pageToken || '', 'IN');
-
-    // Filter to Shorts-length only (<=3 min)
     const filtered = result.videos.filter(v => isShortsLength(v.rawDuration));
-
-    res.json({
+    const data = {
       videos: filtered.length >= 5 ? filtered : result.videos.slice(0, 12),
       nextPageToken: result.nextPageToken || null,
       hasMore: !!result.nextPageToken,
-      queryIndex: nextIdx
-    });
+    };
+    setCache(cacheKey, data);
+    res.json({ ...data, queryIndex: nextIdx });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
